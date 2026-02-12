@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>서울대 합격 예측기 (모바일 최적화)</title>
+<style>
+/* 터치 지연 방지 및 모바일 스타일 */
+*{touch-action: manipulation; -webkit-tap-highlight-color: transparent;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0f172a;color:white;padding:15px;line-height:1.5;}
+h2{text-align:center; margin-bottom: 20px;}
+input,select{width:100%;padding:12px;margin:8px 0;border-radius:8px;border:none;box-sizing: border-box; font-size:16px; background:#1e293b; color:white;}
+/* 입력창 포커스 시 테두리 */
+input:focus{outline:2px solid #facc15; background:#334155;}
+button{width:100%;padding:15px;background:#facc15;color:#111;border:none;border-radius:8px;font-size:18px;font-weight:bold;cursor:pointer; margin-top:10px; transition: transform 0.1s;}
+button:active{transform: scale(0.98); background:#eab308;}
+.card{background:#1e293b;padding:15px;margin-top:12px;border-radius:10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);}
+.safe{border-left:6px solid #22c55e;}
+.fit{border-left:6px solid #facc15;}
+.up{border-left:6px solid #f97316;}
+.search-box { background:#334155; border: 2px solid #facc15; color: white; margin-top: 25px; position: sticky; top: 10px; z-index: 10;}
+.dept-list { margin-top: 10px; padding-bottom: 50px;}
+b { color: #facc15; }
+</style>
+</head>
+<body>
+
+<h2>🎓 서울대 합격 예측기</h2>
+
+<div class="input-group">
+    <input type="number" id="korRaw" placeholder="국어 원점수 (언매)" inputmode="numeric">
+    <input type="number" id="mathRaw" placeholder="수학 원점수 (미적)" inputmode="numeric">
+    <input type="number" id="chemRaw" placeholder="화학Ⅱ 원점수" inputmode="numeric">
+    <input type="number" id="earthRaw" placeholder="지구과학Ⅱ 원점수" inputmode="numeric">
+
+    <select id="eng">
+        <option value="0">영어 1등급</option>
+        <option value="-0.5">영어 2등급 (-0.5)</option>
+        <option value="-2">영어 3등급 (-2)</option>
+    </select>
+
+    <button id="calcBtn">계산 및 학과 조회</button>
+</div>
+
+<div id="summary"></div>
+<div id="searchArea"></div>
+<div id="deptList" class="dept-list"></div>
+
+<script>
+// 데이터 테이블 (생략 없이 동일 유지)
+const korTable = { 100:[147,100], 98:[145,100], 97:[145,100], 96:[144,100], 95:[143,100], 94:[142,99], 93:[141,99], 92:[140,99], 91:[139,99], 90:[138,98], 89:[137,98], 88:[136,97], 87:[135,97], 86:[134,96], 85:[133,96], 84:[132,95], 83:[131,94], 82:[130,93], 81:[129,92], 80:[128,91], 79:[127,90], 78:[126,89], 77:[125,88], 76:[124,87], 75:[123,86], 74:[122,84], 73:[121,83], 72:[120,81], 71:[119,80], 70:[118,78], 69:[117,77], 68:[116,75], 67:[115,74], 66:[114,72], 65:[113,71], 64:[112,69], 63:[111,67], 62:[110,66], 61:[109,64], 60:[108,62], 59:[107,61], 58:[106,59], 57:[105,57], 56:[104,56], 55:[103,54], 54:[102,52], 53:[101,51], 52:[100,49] };
+const mathTable = { 100:[139,100], 97:[137,100], 96:[136,100], 95:[136,100], 94:[135,99], 93:[134,99], 92:[133,99], 91:[133,99], 90:[132,98], 89:[131,98], 88:[130,97], 87:[130,97], 86:[129,96], 85:[128,96], 84:[127,94], 83:[127,94], 82:[126,92], 81:[125,91], 80:[124,88], 79:[124,88], 78:[123,86], 77:[122,84], 76:[121,81], 75:[121,81], 74:[120,79], 73:[119,76], 72:[118,74], 71:[118,74], 70:[117,72], 69:[116,69], 68:[115,67], 67:[115,67], 66:[114,65], 65:[113,63], 64:[112,62], 63:[112,62], 62:[111,60], 61:[110,59], 60:[109,58], 59:[109,58], 58:[108,56], 57:[107,55], 56:[106,54], 55:[106,54], 54:[105,53], 53:[104,52], 52:[103,51], 51:[103,51], 50:[102,50], 49:[101,49], 48:[100,48], 47:[100,48], 46:[99,47], 45:[98,46], 44:[97,45], 43:[97,45], 42:[96,44], 41:[95,43], 40:[94,42], 39:[94,42], 38:[93,42], 37:[92,40], 36:[91,39], 35:[91,39], 34:[90,38], 33:[89,37], 32:[88,36], 31:[88,36], 30:[87,35], 29:[86,33], 28:[85,32], 27:[84,31], 26:[84,31], 25:[83,29], 24:[82,28], 23:[81,27], 22:[81,27], 21:[80,25], 20:[79,23] };
+const chemRawTable = { 50:[70,99],48:[69,98],47:[68,96],46:[67,95],45:[66,93],44:[65,91],43:[65,91],42:[64,89],41:[63,87],40:[62,84],39:[62,84],38:[61,81],37:[60,79],36:[59,77],35:[58,74],34:[58,74],33:[57,71],32:[56,69],31:[55,67],30:[54,64],29:[54,64],28:[53,61],27:[52,59],26:[51,56],25:[50,53],24:[50,53],23:[49,51],22:[48,49],21:[47,45],20:[47,45],19:[46,42],18:[45,40],17:[44,37],16:[43,32],15:[43,32],14:[42,28],13:[41,24],12:[40,20],11:[39,15],10:[39,15],9:[38,9],8:[37,7],7:[36,5],6:[36,5],5:[35,3],4:[34,1],3:[33,1],2:[32,0],0:[31,0] };
+const earthRawTable = { 50:[69,98],48:[68,95],47:[67,93],46:[66,91],45:[65,88],44:[65,88],43:[64,85],42:[63,83],41:[62,81],40:[62,81],39:[61,79],38:[60,77],37:[60,77],36:[59,75],35:[58,74],34:[57,72],33:[57,72],32:[56,70],31:[55,68],30:[54,67],29:[54,67],28:[53,65],27:[52,63],26:[51,61],25:[51,61],24:[50,59],23:[49,56],22:[49,56],21:[48,53],20:[47,51],19:[46,47],18:[46,47],17:[45,42],16:[44,39],15:[43,33],14:[43,33],13:[42,27],12:[41,20],11:[41,20],10:[40,14],9:[39,10],8:[38,6],7:[38,6],6:[37,3],5:[36,2],4:[35,1],3:[35,1],2:[34,0],0:[33,0] };
+const departments = [ { name: "수리과학", cut: 413 }, { name: "전기정보공", cut: 407 }, { name: "통계", cut: 403.7 }, { name: "공학(지)", cut: 403.5 }, { name: "학부광역", cut: 403.1 }, { name: "자전", cut: 403 }, { name: "항공우주", cut: 402.5 }, { name: "첨단융합", cut: 402.4 }, { name: "기계공", cut: 402.3 }, { name: "화학", cut: 402.2 }, { name: "산업공", cut: 402 }, { name: "화생공", cut: 401.7 }, { name: "건환공", cut: 401.1 }, { name: "생명과학", cut: 401.1 }, { name: "컴공", cut: 401 }, { name: "재료공", cut: 401 }, { name: "조선해양공", cut: 401 }, { name: "건축", cut: 400.8 }, { name: "원자핵공", cut: 400.5 }, { name: "바이오시스템소재", cut: 400.2 }, { name: "경제", cut: 399.8 }, { name: "첨단융합(지)", cut: 399.4 }, { name: "경제(지)", cut: 399.2 }, { name: "사회", cut: 399.1 }, { name: "지구환경과학", cut: 399 }, { name: "산림과학", cut: 398.5 }, { name: "물리교육", cut: 398.4 }, { name: "정치외교(지)", cut: 398.2 }, { name: "조경지역시스템공", cut: 398 }, { name: "인문(지)", cut: 397.7 }, { name: "스마트시스템과학", cut: 397.8 }, { name: "경영", cut: 397.5 }, { name: "식물생산과학", cut: 397.5 }, { name: "간호", cut: 397.5 }, { name: "역사학부", cut: 397.4 }, { name: "심리", cut: 397.2 }, { name: "에너지자원공", cut: 397.1 }, { name: "국어교육", cut: 396.6 }, { name: "의류", cut: 396.5 }, { name: "사회복지(지)", cut: 396.4 }, { name: "인문", cut: 396.1 }, { name: "응용생물화학", cut: 396 }, { name: "화학교육", cut: 396 }, { name: "윤리교육", cut: 396 }, { name: "역사교육", cut: 395.5 }, { name: "농경제", cut: 395.5 }, { name: "지리교육", cut: 395.4 }, { name: "지리", cut: 395.2 }, { name: "영어교육", cut: 395.2 }, { name: "지구과학교육", cut: 394.8 }, { name: "정치외교", cut: 394.5 }, { name: "언론정보", cut: 394.2 }, { name: "식품동물생명공", cut: 393.9 } ];
+
+let calculatedTotal = 0;
+
+// 모바일 터치 대응 이벤트 리스너
+const calcBtn = document.getElementById("calcBtn");
+calcBtn.addEventListener("click", calculate);
+calcBtn.addEventListener("touchend", function(e) {
+    e.preventDefault(); 
+    calculate();
+});
+
+function calculate(){
+    const korRaw = document.getElementById("korRaw").value;
+    const mathRaw = document.getElementById("mathRaw").value;
+    const chemRaw = document.getElementById("chemRaw").value;
+    const earthRaw = document.getElementById("earthRaw").value;
+    const eng = Number(document.getElementById("eng").value);
+
+    let k = korTable[korRaw];
+    let m = mathTable[mathRaw];
+    let c = chemRawTable[chemRaw];
+    let e = earthRawTable[earthRaw];
+
+    if(!k || !m || !c || !e){
+        document.getElementById("summary").innerHTML = "<div class='card'>입력 점수를 확인해주세요.</div>";
+        return;
+    }
+
+    calculatedTotal = k[0] + (m[0]*1.2) + 0.8*(c[0]+e[0]) + 5 + eng;
+
+    document.getElementById("summary").innerHTML = `
+        <div class="card">
+            <b>📍 성적 요약</b><br>
+            국어: ${k[0]}점 (${k[1]}%) / 수학: ${m[0]}점 (${m[1]}%)<br>
+            화2: ${c[0]}점 (${c[1]}%) / 지2: ${e[0]}점 (${e[1]}%)<br><br>
+            <b>총 환산 점수: ${calculatedTotal.toFixed(2)}</b>
+        </div>
+    `;
+
+    document.getElementById("searchArea").innerHTML = `
+        <input type="text" id="deptSearch" class="search-box" placeholder="🔎 학과명 검색 (예: 컴공)" oninput="renderDepts()">
+    `;
+
+    // 계산 후 자동으로 검색 결과로 스크롤 이동
+    window.scrollTo({ top: document.getElementById("summary").offsetTop - 20, behavior: 'smooth' });
+    renderDepts();
+}
+
+function renderDepts() {
+    const searchTerm = document.getElementById("deptSearch") ? document.getElementById("deptSearch").value : "";
+    const listDiv = document.getElementById("deptList");
+    
+    let sortedDepts = [...departments].sort((a, b) => Math.abs(calculatedTotal - a.cut) - Math.abs(calculatedTotal - b.cut));
+
+    let html = "";
+    sortedDepts.forEach(d => {
+        if (d.name.includes(searchTerm)) {
+            let diff = calculatedTotal - d.cut;
+            let cls = "up", label = "상향";
+            if (diff >= 5) { cls = "safe"; label = "안정"; }
+            else if (diff >= 0) { cls = "fit"; label = "적정"; }
+            
+            html += `
+                <div class="card ${cls}">
+                    <b>${d.name}</b> <small>(컷: ${d.cut})</small><br>
+                    내 점수와 차이: <b>${diff > 0 ? '+' : ''}${diff.toFixed(2)}</b><br>
+                    결과: <b>${label}</b>
+                </div>
+            `;
+        }
+    });
+
+    listDiv.innerHTML = html || "<div class='card'>검색 결과가 없습니다.</div>";
+}
+</script>
+</body>
+</html>
